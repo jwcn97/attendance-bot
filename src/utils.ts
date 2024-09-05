@@ -52,3 +52,11 @@ export function handleChineseCharacters(str: string): string {
   }
   return str;
 }
+
+export function chunkArray(array: Array<any>, size = 2) {
+  const chunkedArray = []
+  for (var i = 0; i < array.length; i += size) {
+   chunkedArray.push(array.slice(i, i + size))
+  }
+  return chunkedArray
+}
