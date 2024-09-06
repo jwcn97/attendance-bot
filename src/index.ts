@@ -64,7 +64,7 @@ bot.on('message', async (msg: Message) => {
     case 'changeevents':
       const chunkedEvents = eventHandler.getChunkedEvents(command);
       if (!chunkedEvents.length) {
-        await bot.sendMessage(msg.chat.id, "Add new event first");
+        await bot.sendMessage(msg.chat.id, "no events to show");
         break;
       }
       await bot.sendMessage(msg.chat.id, "Choose event", {
@@ -111,13 +111,13 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
     try {
       const data = JSON.parse(query.data);
 
-      if (data.title) {
-        eventHandler.updatePointer(data.title);
+      if (data.t) {
+        eventHandler.updatePointer(data.t);
       }
 
-      switch (data.action) {
+      switch (data.act) {
         case 'changeevents':
-          await bot.editMessageText(eventHandler.displayEvent(data.title), {
+          await bot.editMessageText(eventHandler.displayEvent(), {
             chat_id: query.message.chat.id,
             message_id: query.message.message_id,
             inline_message_id: query.inline_message_id,
@@ -141,6 +141,22 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
           } else if (data.f === 'hours') {
             await bot.editMessageReplyMarkup({
               inline_keyboard: eventHandler.getChunkedHours(),
+            }, {
+              chat_id: query.message.chat.id,
+              message_id: query.message.message_id,
+              inline_message_id: query.inline_message_id,
+            });
+          } else if (data.f === 'addcourt') {
+            await bot.editMessageReplyMarkup({
+              inline_keyboard: eventHandler.getChunkedCourts(),
+            }, {
+              chat_id: query.message.chat.id,
+              message_id: query.message.message_id,
+              inline_message_id: query.inline_message_id,
+            });
+          } else if (data.f === 'removecourt') {
+            await bot.editMessageReplyMarkup({
+              inline_keyboard: eventHandler.getChunkedCurrentCourts(),
             }, {
               chat_id: query.message.chat.id,
               message_id: query.message.message_id,
@@ -176,8 +192,26 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
             inline_message_id: query.inline_message_id,
           });
           break;
+        case 'addeventcourts':
+          const currentCourtsAdd = eventHandler.events[eventHandler.currentPointer].court;
+          eventHandler.updateEvent({ court: [...currentCourtsAdd, Number(data.c)] });
+          await bot.editMessageText(eventHandler.displayEvents(), {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
+          });
+          break;
+        case 'removeeventcourts':
+          const currentCourtsDel = eventHandler.events[eventHandler.currentPointer].court;
+          eventHandler.updateEvent({ court: currentCourtsDel.filter(c => c !== Number(data.c)) });
+          await bot.editMessageText(eventHandler.displayEvents(), {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
+          });
+          break;
         case 'removeevent':
-          eventHandler.removeEvent(data.title);
+          eventHandler.removeEvent();
           await bot.editMessageText(eventHandler.displayEvents(), {
             chat_id: query.message.chat.id,
             message_id: query.message.message_id,
