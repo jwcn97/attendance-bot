@@ -9,7 +9,7 @@
     "format": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "build": "tsc",
     "typecheck": "tsc --noEmit --skipLibCheck",
-    "start": "nodemon",
+    "start": "nodemon --ignore file.json",
     "process:start": "pm2 start dist/index.js --max-memory-restart 300M",
     "process:stop": "pm2 stop index && pm2 delete index"
   },
@@ -21,6 +21,7 @@
     "dotenv": "^16.0.3",
     "moment": "^2.30.1",
     "node-telegram-bot-api": "^0.60.0",
+    "number-to-emoji": "^1.0.0",
     "pm2": "^5.3.0",
     "telegram-inline-calendar": "^1.8.0"
   },

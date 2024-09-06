@@ -1,3 +1,5 @@
+import Numbers from 'number-to-emoji';
+import { retrieve, writeToFile } from "./utils/fsHandle";
 import { chunkArray } from "./utils";
 import {
     getShortDate,
@@ -12,7 +14,7 @@ export type Event = {
     title: string;
     location?: string;
     court: Array<number>; // could be multiple courts, keep as string
-    startDatetime?: number;
+    startDatetime: number;
     hours: number;
     participants: Array<string>;
 }
@@ -23,31 +25,12 @@ const HOURS = ["2", "3", "4"];
 const MAX_COURTS = 2;
 const COURTS = Array.from(Array(9).keys()).map(c => c+1);
 
-// const mockEvents = [
-//     {
-//       title: 'test',
-//       location: 'Henderson CC',
-//       court: [4],
-//       startDatetime: 1726140600,
-//       hours: 2,
-//       participants: [],
-//     },
-//     {
-//       title: 'again',
-//       location: 'Telok blangah',
-//       court: [3],
-//       startDatetime: 1726911000,
-//       hours: 2,
-//       participants: ['adf','addf ','addsf','asdfadsf','adfadsfasdfdsafasd','jacie', 'iuerqyreu', 'kjasfkhasdf'],
-//     }
-// ]
-
 export class EventHandler {
     currentPointer: number = -1;
     events: Array<Event> = [];
 
     constructor() {
-        this.events = [];
+        this.events = retrieve();
     }
 
     displayEvents() {
@@ -82,18 +65,18 @@ export class EventHandler {
     }
 
     getChunkedEvents(act: string) {
-        return chunkArray(this.events.map(event => {
-            const shortDate = event.startDatetime
-                ? getShortDate(event.startDatetime)
-                : event.title;
+        return chunkArray(this.events.map(({ startDatetime, court, hours, participants, location }) => {
+            const shortDate = getShortDate(startDatetime);
+            const maxParticipants = getMaxParticipants(court, hours);
+            const participantCount = Math.min(participants.length, maxParticipants);
             return {
-                text: `${shortDate}${event.location ? ` ${event.location}` : ''}`,
+                text: `${shortDate}${location ? ` ${location}` : ''} 👤 ${Numbers.toEmoji(participantCount)}`,
                 callback_data: JSON.stringify({
-                  t: event.title,
+                  t: startDatetime,
                   act,
                 }),
             }
-        }));
+        }), 1);
     }
 
     getChunkedInstructions() {
@@ -176,6 +159,7 @@ export class EventHandler {
             participants: [],
         });
         this.currentPointer = this.events.length-1;
+        this.save();
     }
 
     updateEvent(event: PartialEvent) {
@@ -218,16 +202,18 @@ export class EventHandler {
             ...event,
             title,
         };
+        this.save();
     }
 
-    updatePointer(title: string) {
-        this.currentPointer = this.events.findIndex(event => event.title === title);
+    updatePointer(startDatetime: number) {
+        this.currentPointer = this.events.findIndex(event => event.startDatetime === startDatetime);
     }
 
     removeEvent() {
         const eventTitle = this.events[this.currentPointer].title;
         this.events = this.events.filter(event => event.title !== eventTitle);
         this.currentPointer = -1;
+        this.save();
     }
 
     getChunkedParticipants() {
@@ -254,10 +240,16 @@ export class EventHandler {
             return;
         }
         event.participants.push(participantName);
+        this.save();
     }
 
     removeParticipant(participantName: string) {
         const event = this.events[this.currentPointer];
         event.participants = event.participants.filter(p => p !== participantName);
+        this.save();
+    }
+
+    save() {
+        writeToFile([...this.events])
     }
 }

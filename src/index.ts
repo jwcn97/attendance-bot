@@ -116,7 +116,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
     const data = JSON.parse(query.data);
 
     if (data.t) {
-      eventHandler.updatePointer(data.t);
+      eventHandler.updatePointer(Number(data.t));
     }
 
     const editMsgOption = {
