@@ -206,7 +206,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
         });
 
         bot.onReplyToMessage(query.message.chat.id, addNamePrompt.message_id, async (nameText) => {
-          eventHandler.addParticipant(nameText.text);
+          eventHandler.addParticipants(nameText.text.split(','));
           await bot.sendMessage(addNamePrompt.chat.id, eventHandler.displayEvent(), {
             reply_markup: {
               // NOTE: need to run this to include remove participant instruction

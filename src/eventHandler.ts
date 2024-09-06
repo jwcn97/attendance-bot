@@ -156,7 +156,7 @@ export class EventHandler {
             hours: 2,
             court: [],
             startDatetime: event.startDatetime,
-            participants: [],
+            participants: ['Hendry'],
         });
         this.currentPointer = this.events.length-1;
         this.save();
@@ -233,13 +233,13 @@ export class EventHandler {
         }]);
     }
 
-    addParticipant(participantName: string) {
+    addParticipants(participantNames: Array<string>) {
         const event = this.events[this.currentPointer];
-        const existingParticipant = event.participants.find(p => p === participantName);
-        if (existingParticipant) {
-            return;
+        for (const participantName of participantNames) {
+            if (!event.participants.find(p => p === participantName)) {
+                event.participants.push(participantName);
+            }
         }
-        event.participants.push(participantName);
         this.save();
     }
 
