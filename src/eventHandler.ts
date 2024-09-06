@@ -1,8 +1,11 @@
 import { chunkArray } from "./utils";
 import {
+    getShortDate,
     convertToReadableDatetimeRange,
     getFeesDisplay,
     getMaxParticipants,
+    getParticipantDisplay,
+    getWaitlistsDisplay,
 } from "./utils/display";
 
 export type Event = {
@@ -10,7 +13,7 @@ export type Event = {
     location?: string;
     court: Array<number>; // could be multiple courts, keep as string
     startDatetime?: number;
-    hours?: number;
+    hours: number;
     participants: Set<string>;
 }
 
@@ -20,31 +23,31 @@ const HOURS = ["2", "3", "4"];
 const MAX_COURTS = 2;
 const COURTS = Array.from(Array(9).keys()).map(c => c+1);
 
-// const mockEvents = [
-//     {
-//       title: 'test',
-//       location: 'test',
-//       court: '3',
-//       startDatetime: 1726140600,
-//       hours: 2,
-//       participants: new Set([]),
-//     },
-//     {
-//       title: 'again',
-//       location: 'again',
-//       court: '4',
-//       startDatetime: 1726911000,
-//       hours: 2,
-//       participants: new Set([]),
-//     }
-// ]
+const mockEvents = [
+    {
+      title: 'test',
+      location: 'test',
+      court: [4],
+      startDatetime: 1726140600,
+      hours: 2,
+      participants: new Set([]),
+    },
+    {
+      title: 'again',
+      location: 'again',
+      court: [3],
+      startDatetime: 1726911000,
+      hours: 2,
+      participants: new Set(['adf','addf ','addsf','asdfadsf','adfadsfasdfdsafasd','jacie', 'iuerqyreu', 'kjasfkhasdf']),
+    }
+]
 
 export class EventHandler {
     currentPointer: number = -1;
     events: Array<Event> = [];
 
     constructor() {
-        this.events = [];
+        this.events = mockEvents;
     }
 
     displayEvents() {
@@ -64,36 +67,42 @@ export class EventHandler {
         const { date, time } = convertToReadableDatetimeRange(startDatetime, hours);
         const fees = getFeesDisplay(hours);
         const maxParticipants = getMaxParticipants(court, hours);
+        const remainingSlots = Math.max(maxParticipants - participants.size, 0);
+        const waitlistSlots = Math.max(participants.size - maxParticipants, 0);
+        // TODO: change participants from set to array
+        const participantDisplay = getParticipantDisplay(Array.from(participants), maxParticipants);
+        const waitlistDisplay = getWaitlistsDisplay(Array.from(participants).slice(maxParticipants));
 
         return '' +
             `${title.toLocaleUpperCase()}\n` +
-            `📍 ${location || ''}\n` +
+            `📍 ${(location || '').toLocaleUpperCase()}\n` +
             `📅 ${date}\n` +
             `⏱️ ${time}\n` +
             `🏸 ${!court.length ? '' : `CRT ${court.join(',')}`}\n` +
             `💵 ${fees}\n\n` +
-            `${[...Array.from(participants), ...new Array(maxParticipants - participants.size).fill('')].map((p, idx) => `${idx+1}. ${p}`).join('\n')}`
+            `${participantDisplay}` +
+            `${waitlistDisplay}`
     }
 
     getChunkedEvents(act: string) {
-        return chunkArray(this.events.map(event => ({
-            text: event.title,
-            callback_data: JSON.stringify({
-              t: event.title,
-              act,
-            }),
-        })));
+        return chunkArray(this.events.map(event => {
+            const shortDate = event.startDatetime
+                ? getShortDate(event.startDatetime)
+                : event.title;
+            return {
+                text: shortDate,
+                callback_data: JSON.stringify({
+                  t: event.title,
+                  act,
+                }),
+            }
+        }));
     }
 
     getChunkedInstructions() {
-        const instructions = ["editevent", "removeevent"];
+        const instructions = ["editevent", "removeevent", "addparticipant"];
         const event = this.events[this.currentPointer];
-        const { court, hours } = event;
-        const maxParticipants = getMaxParticipants(court, hours);
 
-        if (event.participants.size < maxParticipants) {
-            instructions.push("addparticipant");
-        }
         if (event.participants.size > 0) {
             instructions.push("removeparticipant");
         }
@@ -106,13 +115,13 @@ export class EventHandler {
     }
 
     getChunkedFields() {
-        const fieldsToInclude = ["title", "location", "startDatetime", "hours"];
-        const currentCourts = this.events[this.currentPointer].court;
-        if (currentCourts.length < MAX_COURTS) {
-            fieldsToInclude.push('addcourt');
+        const fieldsToInclude = ["hours"];
+        const currentEvent = this.events[this.currentPointer];
+        if (!currentEvent.location) {
+            fieldsToInclude.push('location');
         }
-        if (currentCourts.length > 0) {
-            fieldsToInclude.push('removecourt');
+        if (currentEvent.court.length < MAX_COURTS) {
+            fieldsToInclude.push('addcourt');
         }
         const inlineFields = fieldsToInclude.map(f => ({
             text: f,
@@ -161,41 +170,56 @@ export class EventHandler {
         }])
     }
 
-    getChunkedCurrentCourts() {
-        const currentCourts = this.events[this.currentPointer].court;
-        const inlineCourts = currentCourts.map(c => ({
-            text: c,
-            callback_data: JSON.stringify({
-              c: c.toString(),
-              act: 'removeeventcourts',
-            }),
-        }));
-        return chunkArray([...inlineCourts, {
-            text: "<<",
-            callback_data: JSON.stringify({
-                act: 'editevent',
-            })
-        }])
-    }
-
-    addEvent(title: string) {
+    addEvent(event: PartialEvent) {
         this.events.push({
-            title,
+            title: event.title ?? 'test',
+            hours: 2,
             court: [],
+            startDatetime: event.startDatetime,
             participants: new Set([]),
         });
-        this.updatePointer(title);
+        this.currentPointer = this.events.length-1;
     }
 
     updateEvent(event: PartialEvent) {
-        if (this.currentPointer < 0) {
-            return;
+        const currentEvent = this.events[this.currentPointer];
+
+        let title = currentEvent.title;
+
+        // there are changes to court
+        if (event.court) {
+            if (currentEvent.title.slice(0,4).includes('CRT')) {
+                if (event.court.length > 1) {
+                    title = event.court.length + currentEvent.title.slice(1);
+                } else {
+                    title = currentEvent.title.slice(5)
+                }
+            } else {
+                if (event.court.length > 1) {
+                    title = event.court.length + "CRT " + currentEvent.title;
+                }
+            }
         }
 
-        const currentEvent = this.events[this.currentPointer];
+        // there are changes to hours
+        if (event.hours) {
+            if (currentEvent.title.slice(0,3).includes('HR')) {
+                if (event.hours > 2) {
+                    title = event.hours + currentEvent.title.slice(1);
+                } else {
+                    title = currentEvent.title.slice(4)
+                }
+            } else {
+                if (event.hours > 2) {
+                    title = event.hours + "HR " + currentEvent.title;
+                }
+            }
+        }
+
         this.events[this.currentPointer] = {
             ...currentEvent,
             ...event,
+            title,
         };
     }
 

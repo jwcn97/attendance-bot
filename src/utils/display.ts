@@ -6,6 +6,14 @@ import {
     MAX_PARTICIPANTS,
 } from "../constants";
 
+export function getFullDay(unix: number) {
+    return moment.unix(unix).format('dddd');
+}
+
+export function getShortDate(startDatetime: number): string {
+    return moment.unix(startDatetime).format("DD-MMM (ddd)");
+}
+
 export function convertToReadableDatetimeRange(startDatetime: number, hours: number): {
     date: string;
     time: string;
@@ -42,4 +50,16 @@ export function getMaxParticipants(court: Array<number>, hours?: number) {
 
 export function getFeesDisplay(hours?: number) {
     return `${hours ? HOUR_TO_FEES_MAPPING[hours] : 0} DOLLARS (CASH OR PAYNOW)`;
+}
+
+export function getParticipantDisplay(participants: Array<string>, maxParticipants: number) {
+    const remainingSlots = Math.max(maxParticipants - participants.length, 0);
+    return [...participants.slice(0, maxParticipants), ...new Array(remainingSlots).fill('')].map((p, idx) => `${idx+1}. ${p}`).join('\n');
+}
+
+export function getWaitlistsDisplay(waitlists: Array<string>) {
+    if (!waitlists.length) {
+        return '';
+    }
+    return `\n\nwaitlist:\n${waitlists.map((p, idx) => `${idx+1}. ${p}`).join('\n')}`;
 }

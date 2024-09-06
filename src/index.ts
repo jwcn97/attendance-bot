@@ -7,6 +7,7 @@ import Calendar from 'telegram-inline-calendar';
 import { EventHandler } from './eventHandler';
 import { DATETIME_FORMAT } from './constants';
 import { getUnixTimestamp } from './utils/datetime';
+import { getFullDay } from './utils/display';
 import { preparePrompt } from './utils';
 
 import type { Message } from 'node-telegram-bot-api';
@@ -80,22 +81,8 @@ bot.on('message', async (msg: Message) => {
       await bot.sendMessage(msg.chat.id, eventHandler.displayEvents());
       break;
     case 'addevent':
-      const titlePrompt = await bot.sendMessage(msg.chat.id, "Title?", {
-        reply_markup: {
-          force_reply: true,
-        },
-      });
-      bot.onReplyToMessage(msg.chat.id, titlePrompt.message_id, async (titleText) => {
-        const title = titleText.text;
-        eventHandler.addEvent(title);
-        await bot.sendMessage(msg.chat.id, eventHandler.displayEvent(), {
-          reply_markup: {
-            inline_keyboard: eventHandler.getChunkedInstructions(),
-            remove_keyboard: true,
-            one_time_keyboard: true,
-          },
-        });
-      });
+      eventHandler.currentPointer = -1;
+      calendar.startNavCalendar(msg);
       break;
     case 'default':
       break;
@@ -105,30 +92,19 @@ bot.on('message', async (msg: Message) => {
 });
 
 bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
-  const editMsgOption = {
-    chat_id: query.message.chat.id,
-    message_id: query.message.message_id,
-    inline_message_id: query.inline_message_id,
-  };
-
-  const markupOption = {
-    reply_markup: {
-      inline_keyboard: eventHandler.getChunkedInstructions(),
-    },
-  }
-
-  const editMsgOptionWithInstruction = {
-    ...editMsgOption,
-    ...markupOption,
-  }
-
   if (query.message.message_id == calendar.chats.get(query.message.chat.id)) {
     const res = calendar.clickButtonCalendar(query);
-    if (res !== -1) {
-      eventHandler.updateEvent({ startDatetime: getUnixTimestamp(res) });
-      // TODO: see if we can directly edit the msg before the calendar, because calendar will disappear by default
-      await bot.sendMessage(query.message.chat.id, eventHandler.displayEvents(), markupOption);
+    if (res === -1) {
+      return;
     }
+
+    const startDatetime = getUnixTimestamp(res);
+    eventHandler.addEvent({ title: `HBK ${getFullDay(startDatetime)} badminton`, startDatetime });
+    await bot.sendMessage(query.message.chat.id, eventHandler.displayEvent(), {
+      reply_markup: {
+        inline_keyboard: eventHandler.getChunkedFields(),
+      },
+    });
     return;
   }
 
@@ -143,6 +119,19 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
       eventHandler.updatePointer(data.t);
     }
 
+    const editMsgOption = {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      inline_message_id: query.inline_message_id,
+    };
+
+    const editMsgOptionWithInstruction = {
+      ...editMsgOption,
+      reply_markup: {
+        inline_keyboard: eventHandler.getChunkedInstructions(),
+      },
+    }
+
     const currentEvent = eventHandler.events[eventHandler.currentPointer];
 
     switch (data.act) {
@@ -155,19 +144,13 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
         }, editMsgOption);
         break;
       case 'editeventfield':
-        if (data.f === 'startDatetime') {
-          calendar.startNavCalendar(query.message);
-        } else if (data.f === 'hours') {
+        if (data.f === 'hours') {
           await bot.editMessageReplyMarkup({
             inline_keyboard: eventHandler.getChunkedHours(),
           }, editMsgOption);
         } else if (data.f === 'addcourt') {
           await bot.editMessageReplyMarkup({
             inline_keyboard: eventHandler.getChunkedCourts(),
-          }, editMsgOption);
-        } else if (data.f === 'removecourt') {
-          await bot.editMessageReplyMarkup({
-            inline_keyboard: eventHandler.getChunkedCurrentCourts(),
           }, editMsgOption);
         } else {
           const updatePrompt = await bot.sendMessage(query.message.chat.id, `new ${data.f}`, {
