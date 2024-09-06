@@ -4,7 +4,7 @@ dotenv.config();
 import TelegramBot from 'node-telegram-bot-api';
 import Calendar from 'telegram-inline-calendar';
 import { EventHandler } from './eventHandler';
-import { DATETIME_FORMAT } from './constants';
+import { WHITELIST_ADMIN, DATETIME_FORMAT } from './constants';
 import { getUnixTimestamp } from './utils/datetime';
 import { getFullDay } from './utils/display';
 import { preparePrompt } from './utils';
@@ -46,6 +46,9 @@ bot.setMyCommands(
 );
 
 bot.on('message', async (msg: Message) => {
+  const isAdmin = true;
+  // const isAdmin = msg.chat.type == 'private' && WHITELIST_ADMIN.includes(msg.from.username);
+
   const { command, prompt } = preparePrompt(msg);
   if (!command) return;
   console.log('\nCOMMAND:', command, '\nPROMPT:', prompt);
@@ -69,6 +72,10 @@ bot.on('message', async (msg: Message) => {
       await bot.sendMessage(msg.chat.id, eventHandler.displayEvents());
       break;
     case 'addevent':
+      if (!isAdmin) {
+        await bot.sendMessage(msg.chat.id, 'no access to this feature');
+        break;
+      }
       eventHandler.currentPointer = -1;
       calendar.startNavCalendar(msg);
       break;
@@ -80,6 +87,9 @@ bot.on('message', async (msg: Message) => {
 });
 
 bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
+  const isAdmin = true;
+  // const isAdmin = query.message.chat.type == 'private' && WHITELIST_ADMIN.includes(query.from.username);
+
   if (query.message.message_id == calendar.chats.get(query.message.chat.id)) {
     const res = calendar.clickButtonCalendar(query);
     if (res === -1) {
@@ -115,7 +125,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
 
     const msgReplyOption = {
       reply_markup: {
-        inline_keyboard: eventHandler.getChunkedInstructions(),
+        inline_keyboard: eventHandler.getChunkedInstructions(isAdmin),
       },
     }
 
@@ -172,7 +182,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
           ...editMsgOption,
           reply_markup: {
             // NOTE: need to refetch instructions in case court number hits boundary
-            inline_keyboard: eventHandler.getChunkedInstructions(),
+            inline_keyboard: eventHandler.getChunkedInstructions(isAdmin),
           },
         });
         break;
@@ -193,7 +203,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
             reply_markup: {
               // NOTE: need to run this to include remove participant instruction
               // (case when participant number goes from 0 -> 1)
-              inline_keyboard: eventHandler.getChunkedInstructions(),
+              inline_keyboard: eventHandler.getChunkedInstructions(isAdmin),
             },
           });
           // await bot.deleteMessage(query.message.chat.id, String(addNamePrompt.message_id));
@@ -212,7 +222,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
           ...editMsgOption,
           reply_markup: {
             // NOTE: need to refetch instructions in case participant number hits 0
-            inline_keyboard: eventHandler.getChunkedInstructions(),
+            inline_keyboard: eventHandler.getChunkedInstructions(isAdmin),
           },
         });
         break;

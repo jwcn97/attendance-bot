@@ -1,3 +1,5 @@
+export const WHITELIST_ADMIN = ['zecoffeeaddict']; // TODO: add hendry
+
 export const DATETIME_FORMAT = "DD-MMM-YY HH:mm";
 
 export const HOUR_TO_FEES_MAPPING = {

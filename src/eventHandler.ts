@@ -79,12 +79,14 @@ export class EventHandler {
         }), 1);
     }
 
-    getChunkedInstructions() {
-        const instructions = ["editevent", "removeevent", "addparticipant"];
+    getChunkedInstructions(isAdmin: boolean) {
+        const instructions = isAdmin
+            ? ['editevent', 'removeevent', 'addparticipant']
+            : ['addparticipant']
         const event = this.events[this.currentPointer];
 
         if (event.participants.length > 0) {
-            instructions.push("removeparticipant");
+            instructions.push('removeparticipant');
         }
         return chunkArray(instructions.map(act => ({
             text: act,
