@@ -1,7 +1,6 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-// import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import TelegramBot from 'node-telegram-bot-api';
 import Calendar from 'telegram-inline-calendar';
 import { EventHandler } from './eventHandler';
@@ -11,17 +10,6 @@ import { getFullDay } from './utils/display';
 import { preparePrompt } from './utils';
 
 import type { Message } from 'node-telegram-bot-api';
-
-// TODO: integrate with dynamoDB
-// (async () => {
-//   const client = new DynamoDB({ region: "ap-southeast-1" });
-//   try {
-//     const results = await client.listTables({});
-//     console.log(results.TableNames.join("\n"));
-//   } catch (err) {
-//     console.error(err);
-//   }
-// })();
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const calendar = new Calendar(bot, {
