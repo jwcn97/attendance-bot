@@ -18,18 +18,14 @@ export function convertToReadableDatetimeRange(startDatetime: number, hours: num
     date: string;
     time: string;
 } {
-    let date = '';
-    let startTime = '';
-    let endTime = '';
-
     if (!startDatetime) {
         return {
-            date,
+            date: '',
             time: hours ? `${hours}HR` : ''
         };
     }
 
-    [date, startTime] = moment.unix(startDatetime).format(DATETIME_FORMAT).split(' ');
+    const [date, startTime] = moment.unix(startDatetime).format(DATETIME_FORMAT).split(' ');
     if (!hours) {
         return {
             date,
@@ -37,7 +33,7 @@ export function convertToReadableDatetimeRange(startDatetime: number, hours: num
         };
     }
 
-    endTime = moment.unix(startDatetime + hours * 3600).format(DATETIME_FORMAT).split(' ')[1];
+    const endTime = moment.unix(startDatetime + hours * 3600).format(DATETIME_FORMAT).split(' ')[1];
     return {
         date,
         time: `${startTime} to ${endTime} (${hours}HR)`,

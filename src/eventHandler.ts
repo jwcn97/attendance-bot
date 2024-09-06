@@ -14,7 +14,7 @@ export type Event = {
     court: Array<number>; // could be multiple courts, keep as string
     startDatetime?: number;
     hours: number;
-    participants: Set<string>;
+    participants: Array<string>;
 }
 
 export type PartialEvent = Partial<Event>;
@@ -30,7 +30,7 @@ const mockEvents = [
       court: [4],
       startDatetime: 1726140600,
       hours: 2,
-      participants: new Set([]),
+      participants: [],
     },
     {
       title: 'again',
@@ -38,7 +38,7 @@ const mockEvents = [
       court: [3],
       startDatetime: 1726911000,
       hours: 2,
-      participants: new Set(['adf','addf ','addsf','asdfadsf','adfadsfasdfdsafasd','jacie', 'iuerqyreu', 'kjasfkhasdf']),
+      participants: ['adf','addf ','addsf','asdfadsf','adfadsfasdfdsafasd','jacie', 'iuerqyreu', 'kjasfkhasdf'],
     }
 ]
 
@@ -67,9 +67,6 @@ export class EventHandler {
         const { date, time } = convertToReadableDatetimeRange(startDatetime, hours);
         const fees = getFeesDisplay(hours);
         const maxParticipants = getMaxParticipants(court, hours);
-        const remainingSlots = Math.max(maxParticipants - participants.size, 0);
-        const waitlistSlots = Math.max(participants.size - maxParticipants, 0);
-        // TODO: change participants from set to array
         const participantDisplay = getParticipantDisplay(Array.from(participants), maxParticipants);
         const waitlistDisplay = getWaitlistsDisplay(Array.from(participants).slice(maxParticipants));
 
@@ -103,7 +100,7 @@ export class EventHandler {
         const instructions = ["editevent", "removeevent", "addparticipant"];
         const event = this.events[this.currentPointer];
 
-        if (event.participants.size > 0) {
+        if (event.participants.length > 0) {
             instructions.push("removeparticipant");
         }
         return chunkArray(instructions.map(act => ({
@@ -176,7 +173,7 @@ export class EventHandler {
             hours: 2,
             court: [],
             startDatetime: event.startDatetime,
-            participants: new Set([]),
+            participants: [],
         });
         this.currentPointer = this.events.length-1;
     }
@@ -252,11 +249,15 @@ export class EventHandler {
 
     addParticipant(participantName: string) {
         const event = this.events[this.currentPointer];
-        event.participants.add(participantName);
+        const existingParticipant = event.participants.find(p => p === participantName);
+        if (existingParticipant) {
+            return;
+        }
+        event.participants.push(participantName);
     }
 
     removeParticipant(participantName: string) {
         const event = this.events[this.currentPointer];
-        event.participants.delete(participantName);
+        event.participants = event.participants.filter(p => p !== participantName);
     }
 }

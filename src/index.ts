@@ -207,7 +207,13 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
 
         bot.onReplyToMessage(query.message.chat.id, addNamePrompt.message_id, async (nameText) => {
           eventHandler.addParticipant(nameText.text);
-          await bot.sendMessage(addNamePrompt.chat.id, eventHandler.displayEvent());
+          await bot.sendMessage(addNamePrompt.chat.id, eventHandler.displayEvent(), {
+            reply_markup: {
+              // NOTE: need to run this to include remove participant instruction
+              // (case when participant number goes from 0 -> 1)
+              inline_keyboard: eventHandler.getChunkedInstructions(),
+            },
+          });
           // await bot.deleteMessage(query.message.chat.id, String(addNamePrompt.message_id));
           // await bot.deleteMessage(query.message.chat.id, String(nameText.message_id));
           // await bot.editMessageText(eventHandler.displayEvent(), editMsgOption);
@@ -223,7 +229,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
         await bot.editMessageText(eventHandler.displayEvent(), {
           ...editMsgOption,
           reply_markup: {
-            // NOTE: need to refetch instructions in case participant number hits boundary
+            // NOTE: need to refetch instructions in case participant number hits 0
             inline_keyboard: eventHandler.getChunkedInstructions(),
           },
         });
