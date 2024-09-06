@@ -2,7 +2,7 @@ import type { Message } from 'node-telegram-bot-api';
 
 const BOT_USERNAME = '@hendry_attendance_bot';
 
-export function preparePrompt({ chat, text, entities = [] }: Message): {
+export function preparePrompt({ text, entities = [] }: Message): {
   command?: string;
   prompt?: string;
 } {
@@ -19,24 +19,6 @@ export function preparePrompt({ chat, text, entities = [] }: Message): {
           text.substring(entity.offset + 1).replace(BOT_USERNAME, ''),
       };
     }
-    // bot-mentions
-    if (
-      entity.type === 'mention' &&
-      text.slice(entity.offset, entity.length) === BOT_USERNAME
-    ) {
-      return {
-        command: 'default',
-        prompt:
-          text.substring(0, entity.offset) + text.substring(entity.length),
-      };
-    }
-  }
-  // normal text in private chats
-  if (chat.type === 'private') {
-    return {
-      command: 'default',
-      prompt: text,
-    };
   }
   // invalid commands
   return {};

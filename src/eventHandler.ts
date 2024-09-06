@@ -1,5 +1,9 @@
 import { chunkArray } from "./utils";
-import { convertToReadableDatetimeRange } from "./datetime";
+import {
+    convertToReadableDatetimeRange,
+    getFeesDisplay,
+    getMaxParticipants,
+} from "./utils/display";
 
 export type Event = {
     title: string;
@@ -7,7 +11,6 @@ export type Event = {
     court: Array<number>; // could be multiple courts, keep as string
     startDatetime?: number;
     hours?: number;
-    maxParticipants: number;
     participants: Set<string>;
 }
 
@@ -16,14 +19,6 @@ export type PartialEvent = Partial<Event>;
 const HOURS = ["2", "3", "4"];
 const MAX_COURTS = 2;
 const COURTS = Array.from(Array(9).keys()).map(c => c+1);
-
-const HOUR_TO_FEES_MAPPING = {
-    0: 0,
-    1: 0,
-    2: 10,
-    3: 12,
-    4: 15,
-};
 
 // const mockEvents = [
 //     {
@@ -63,15 +58,20 @@ export class EventHandler {
         const event = eventTitle
             ? this.events.find(event => event.title === eventTitle)
             : this.events[this.currentPointer];
-        const { title, location, startDatetime, hours = 0, court, participants, maxParticipants } = event;
-        const { date, startTime, endTime } = convertToReadableDatetimeRange(startDatetime, hours ? startDatetime + hours * 3600 : undefined);
-        return "" +
+
+        const { title, location, startDatetime, hours, court, participants } = event;
+
+        const { date, time } = convertToReadableDatetimeRange(startDatetime, hours);
+        const fees = getFeesDisplay(hours);
+        const maxParticipants = getMaxParticipants(court, hours);
+
+        return '' +
             `${title.toLocaleUpperCase()}\n` +
-            `📍: ${location || '-'}\n` +
-            `📅: ${date || '-'}\n` +
-            `⏱️: ${startTime} to ${endTime} (${hours}HR)\n` +
-            `🏸: ${!court.length ? '-' : `CRT ${court.join(',')}`}\n` +
-            `💵: ${HOUR_TO_FEES_MAPPING[hours]} DOLLARS (CASH OR PAYNOW)\n\n` +
+            `📍 ${location || ''}\n` +
+            `📅 ${date}\n` +
+            `⏱️ ${time}\n` +
+            `🏸 ${!court.length ? '' : `CRT ${court.join(',')}`}\n` +
+            `💵 ${fees}\n\n` +
             `${[...Array.from(participants), ...new Array(maxParticipants - participants.size).fill('')].map((p, idx) => `${idx+1}. ${p}`).join('\n')}`
     }
 
@@ -88,7 +88,10 @@ export class EventHandler {
     getChunkedInstructions() {
         const instructions = ["editevent", "removeevent"];
         const event = this.events[this.currentPointer];
-        if (event.participants.size < event.maxParticipants) {
+        const { court, hours } = event;
+        const maxParticipants = getMaxParticipants(court, hours);
+
+        if (event.participants.size < maxParticipants) {
             instructions.push("addparticipant");
         }
         if (event.participants.size > 0) {
@@ -179,7 +182,6 @@ export class EventHandler {
         this.events.push({
             title,
             court: [],
-            maxParticipants: 8, // TODO: make this depend on hours + number of courts
             participants: new Set([]),
         });
         this.updatePointer(title);
