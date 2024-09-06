@@ -6,8 +6,8 @@ export function getUnixTimestamp(str: string) {
 }
 
 export function convertToReadableDatetimeRange(startDatetime: number, endDatetime: number) {
-    const startDTStr = moment.unix(startDatetime).format("DD-MMM-YY HH:mm");
-    const endDTStr = moment.unix(endDatetime).format("DD-MMM-YY HH:mm");
+    const startDTStr = startDatetime ? moment.unix(startDatetime).format("DD-MMM-YY HH:mm") : '- -';
+    const endDTStr = endDatetime ? moment.unix(endDatetime).format("DD-MMM-YY HH:mm") : '- -';
     const [date, startTime] = startDTStr.split(' ');
     const [_, endTime] = endDTStr.split(' ');
 

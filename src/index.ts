@@ -1,12 +1,12 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { DynamoDB } from '@aws-sdk/client-dynamodb';
+// import { DynamoDB } from '@aws-sdk/client-dynamodb';
 import TelegramBot from 'node-telegram-bot-api';
 import Calendar from 'telegram-inline-calendar';
-import eventHandler from './eventHandler';
-import { convertToReadableDatetimeRange, getUnixTimestamp } from './datetime';
-import { preparePrompt, handleChineseCharacters, chunkArray } from './utils';
+import { EventHandler } from './eventHandler';
+import { getUnixTimestamp } from './datetime';
+import { preparePrompt } from './utils';
 
 import type { Message } from 'node-telegram-bot-api';
 
@@ -31,23 +31,21 @@ const calendar = new Calendar(bot, {
   language: 'en'
 });
 
+const eventHandler = new EventHandler();
+
 bot.setMyCommands(
   [
     {
+      command: '/changeevents',
+      description: 'Change Events',
+    },
+    {
+      command: '/displayevents',
+      description: 'Display Events',
+    },
+    {
       command: '/addevent',
       description: 'Add new event',
-    },
-    {
-      command: '/addparticipant',
-      description: 'Add new participant',
-    },
-    {
-      command: '/removeparticipant',
-      description: 'Remove participant',
-    },
-    {
-      command: '/removeevent',
-      description: 'Remove event',
     },
   ],
   {
@@ -63,8 +61,22 @@ bot.on('message', async (msg: Message) => {
   console.log('\nCOMMAND:', command, '\nPROMPT:', prompt);
 
   switch (command) {
-    case 'testcalendar':
-      calendar.startNavCalendar(msg);
+    case 'changeevents':
+      const chunkedEvents = eventHandler.getChunkedEvents(command);
+      if (!chunkedEvents.length) {
+        await bot.sendMessage(msg.chat.id, "Add new event first");
+        break;
+      }
+      await bot.sendMessage(msg.chat.id, "Choose event", {
+        reply_markup: {
+          inline_keyboard: eventHandler.getChunkedEvents(command),
+          remove_keyboard: true,
+          one_time_keyboard: true,
+        },
+      });
+      break;
+    case 'displayevents':
+      await bot.sendMessage(msg.chat.id, eventHandler.displayEvents());
       break;
     case 'addevent':
       const titlePrompt = await bot.sendMessage(msg.chat.id, "Title?", {
@@ -74,68 +86,8 @@ bot.on('message', async (msg: Message) => {
       });
       bot.onReplyToMessage(msg.chat.id, titlePrompt.message_id, async (titleText) => {
         const title = titleText.text;
-        eventHandler.addPartialEvent({ title });
-
-        const locationPrompt = await bot.sendMessage(msg.chat.id, "Location?", {
-          reply_markup: {
-            force_reply: true,
-          },
-        });
-
-        bot.onReplyToMessage(msg.chat.id, locationPrompt.message_id, async (locationText) => {
-          const location = locationText.text;
-          eventHandler.addPartialEvent({ location });
-
-          const crtPrompt = await bot.sendMessage(msg.chat.id, "Court Number?", {
-            reply_markup: {
-              force_reply: true,
-            },
-          });
-  
-          bot.onReplyToMessage(msg.chat.id, crtPrompt.message_id, async (crtText) => {
-            const court = crtText.text;
-            eventHandler.addPartialEvent({ court });
-
-            const feesPrompt = await bot.sendMessage(msg.chat.id, "Fees?", {
-              reply_markup: {
-                force_reply: true,
-              },
-            });
-    
-            bot.onReplyToMessage(msg.chat.id, feesPrompt.message_id, async (feesText) => {
-              const fees = Number(feesText.text);
-              eventHandler.addPartialEvent({ fees });
-    
-              await bot.sendMessage(msg.chat.id, "StartTime?");
-              calendar.startNavCalendar(msg);
-            });
-          });
-        });
-      });
-      break;
-    case 'addparticipant':
-      break;
-    case 'removeparticipant':
-      break;
-    case 'removeevent':
-      if (!eventHandler.events.length) {
-        await bot.sendMessage(msg.chat.id, 'No events to remove');
-        return;
-      }
-
-      const events = eventHandler.events.map(event => ({
-        text: event.title,
-        callback_data: JSON.stringify({
-          title: event.title,
-          action: 'removeevent',
-        }),
-      }));
-
-      await bot.sendMessage(msg.chat.id, "Choose event to remove", {
-        reply_markup: {
-          inline_keyboard: chunkArray(events),
-          one_time_keyboard: true,
-        },
+        eventHandler.addEvent(title);
+        await bot.sendMessage(msg.chat.id, eventHandler.displayEvents());
       });
       break;
     case 'default':
@@ -145,29 +97,131 @@ bot.on('message', async (msg: Message) => {
   }
 });
 
-bot.on("callback_query", async (query) => {
+bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
   if (query.message.message_id == calendar.chats.get(query.message.chat.id)) {
     const res = calendar.clickButtonCalendar(query);
-    if (res !== -1) {
-      if (!eventHandler.pendingEvent.startDatetime) {
-        eventHandler.addPartialEvent({ startDatetime: getUnixTimestamp(res) });
-        await bot.sendMessage(query.message.chat.id, "EndTime?");
-        calendar.startNavCalendar(query.message);
-        return;
-      }
-
-      eventHandler.addPartialEvent({ endDatetime: getUnixTimestamp(res) });
-      eventHandler.commitEvent();
-      console.log(eventHandler.events);
+    if (res !== -1 && eventHandler.currentPointer >= 0) {
+      eventHandler.updateEvent({ startDatetime: getUnixTimestamp(res) });
+      await bot.sendMessage(query.message.chat.id, eventHandler.displayEvents());
     }
+    return;
   }
 
   if (query.data) {
     try {
       const data = JSON.parse(query.data);
-      if (data.action === 'removeevent') {
-        eventHandler.removeEvent(data.title);
-        await bot.sendMessage(query.message.chat.id, `Event "${data.title}" deleted`);
+
+      if (data.title) {
+        eventHandler.updatePointer(data.title);
+      }
+
+      switch (data.action) {
+        case 'changeevents':
+          await bot.editMessageText(eventHandler.displayEvent(data.title), {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
+            reply_markup: {
+              inline_keyboard: eventHandler.getChunkedInstructions(),
+            },
+          });
+          break;
+        case 'editevent':
+          await bot.editMessageReplyMarkup({
+            inline_keyboard: eventHandler.getChunkedFields(),
+          }, {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
+          });
+          break;
+        case 'editeventfield':
+          if (data.f === 'startDatetime') {
+            calendar.startNavCalendar(query.message);
+          } else if (data.f === 'hours') {
+            await bot.editMessageReplyMarkup({
+              inline_keyboard: eventHandler.getChunkedHours(),
+            }, {
+              chat_id: query.message.chat.id,
+              message_id: query.message.message_id,
+              inline_message_id: query.inline_message_id,
+            });
+          } else {
+            const updatePrompt = await bot.sendMessage(query.message.chat.id, `new ${data.f}`, {
+              reply_markup: {
+                force_reply: true,
+              },
+            });
+    
+            bot.onReplyToMessage(query.message.chat.id, updatePrompt.message_id, async (text) => {
+              const newField = text.text;
+              eventHandler.updateEvent({ [data.f]: newField });
+
+              await bot.deleteMessage(updatePrompt.chat.id, String(updatePrompt.message_id));
+              await bot.deleteMessage(updatePrompt.chat.id, String(text.message_id));
+              await bot.editMessageText(eventHandler.displayEvents(), {
+                chat_id: query.message.chat.id,
+                message_id: query.message.message_id,
+                inline_message_id: query.inline_message_id,
+              });
+            });
+          }
+          break;
+        case 'editeventhours':
+          eventHandler.updateEvent({ hours: Number(data.h) });
+          await bot.editMessageText(eventHandler.displayEvents(), {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
+          });
+          break;
+        case 'removeevent':
+          eventHandler.removeEvent(data.title);
+          await bot.editMessageText(eventHandler.displayEvents(), {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
+          });
+          break;
+        case 'addparticipant':
+          const addNamePrompt = await bot.sendMessage(query.message.chat.id, "Name?", {
+            reply_markup: {
+              force_reply: true,
+            },
+          });
+  
+          bot.onReplyToMessage(query.message.chat.id, addNamePrompt.message_id, async (nameText) => {
+            eventHandler.addParticipant(nameText.text);
+            await bot.deleteMessage(addNamePrompt.chat.id, String(addNamePrompt.message_id));
+            await bot.deleteMessage(addNamePrompt.chat.id, String(nameText.message_id));
+            await bot.editMessageText(eventHandler.displayEvents(), {
+              chat_id: query.message.chat.id,
+              message_id: query.message.message_id,
+              inline_message_id: query.inline_message_id,
+            });
+          });
+          break;
+        case 'removeparticipant':
+          const removeNamePrompt = await bot.sendMessage(query.message.chat.id, "Name?", {
+            reply_markup: {
+              force_reply: true,
+            },
+          });
+  
+          bot.onReplyToMessage(query.message.chat.id, removeNamePrompt.message_id, async (nameText) => {
+            eventHandler.removeParticipant(nameText.text);
+            await bot.deleteMessage(removeNamePrompt.chat.id, String(removeNamePrompt.message_id));
+            await bot.deleteMessage(removeNamePrompt.chat.id, String(nameText.message_id));
+            await bot.editMessageText(eventHandler.displayEvents(), {
+              chat_id: query.message.chat.id,
+              message_id: query.message.message_id,
+              inline_message_id: query.inline_message_id,
+            });
+          });
+          break;
+        default:
+          //
+          break;
       }
     } catch (e) {
       console.error(e);
