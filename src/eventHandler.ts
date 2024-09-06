@@ -95,11 +95,8 @@ export class EventHandler {
     }
 
     getChunkedFields() {
-        const fieldsToInclude = ["hours"];
+        const fieldsToInclude = ['hours', 'location'];
         const currentEvent = this.events[this.currentPointer];
-        if (!currentEvent.location) {
-            fieldsToInclude.push('location');
-        }
         if (currentEvent.court.length < MAX_COURTS) {
             fieldsToInclude.push('addcourt');
         }

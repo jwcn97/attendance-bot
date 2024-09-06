@@ -125,11 +125,15 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
       inline_message_id: query.inline_message_id,
     };
 
-    const editMsgOptionWithInstruction = {
-      ...editMsgOption,
+    const msgReplyOption = {
       reply_markup: {
         inline_keyboard: eventHandler.getChunkedInstructions(),
       },
+    }
+
+    const editMsgOptionWithInstruction = {
+      ...editMsgOption,
+      ...msgReplyOption,
     }
 
     const currentEvent = eventHandler.events[eventHandler.currentPointer];
@@ -163,7 +167,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
             const newField = text.text;
             eventHandler.updateEvent({ [data.f]: newField });
 
-            await bot.sendMessage(updatePrompt.chat.id, eventHandler.displayEvent());
+            await bot.sendMessage(updatePrompt.chat.id, eventHandler.displayEvent(), msgReplyOption);
             // await bot.deleteMessage(query.message.chat.id, String(updatePrompt.message_id));
             // await bot.deleteMessage(query.message.chat.id, String(text.message_id));
             // await bot.editMessageText(eventHandler.displayEvent(), editMsgOption);
