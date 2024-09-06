@@ -7,6 +7,7 @@ export type Event = {
     court?: string; // could be multiple courts, keep as string
     startDatetime?: number;
     hours?: number;
+    maxParticipants: number;
     participants: Set<string>;
 }
 
@@ -53,7 +54,7 @@ export class EventHandler {
 
     displayEvent(eventTitle: string) {
         const event = this.events.find(event => event.title === eventTitle);
-        const { title, location, startDatetime, hours = 0, court, participants } = event;
+        const { title, location, startDatetime, hours = 0, court, participants, maxParticipants } = event;
         const { date, startTime, endTime } = convertToReadableDatetimeRange(startDatetime, hours ? startDatetime + hours * 3600 : undefined);
         return "" +
             `${title.toLocaleUpperCase()}\n` +
@@ -61,9 +62,8 @@ export class EventHandler {
             `📅: ${date || '-'}\n` +
             `⏱️: ${startTime} to ${endTime} (${hours}HR)\n` +
             `🏸: ${!court ? '-' : `CRT ${court}`}\n` +
-            `💵: ${HOUR_TO_FEES_MAPPING[hours]} DOLLARS (CASH OR PAYNOW)` +
-            `${participants.size ? '\n\n' : ''}` +
-            `${Array.from(participants).map((p, idx) => `${idx+1}. ${p}`).join('\n')}`
+            `💵: ${HOUR_TO_FEES_MAPPING[hours]} DOLLARS (CASH OR PAYNOW)\n\n` +
+            `${[...Array.from(participants), ...new Array(maxParticipants - participants.size).fill('')].map((p, idx) => `${idx+1}. ${p}`).join('\n')}`
     }
 
     getChunkedEvents(action: string) {
@@ -77,10 +77,18 @@ export class EventHandler {
     }
 
     getChunkedInstructions() {
-        return chunkArray(["editevent", "addparticipant", "removeparticipant", "removeevent"].map(i => ({
+        const instructions = ["editevent", "removeevent"];
+        const event = this.events[this.currentPointer];
+        if (event.participants.size < event.maxParticipants) {
+            instructions.push("addparticipant");
+        }
+        if (event.participants.size > 0) {
+            instructions.push("removeparticipant");
+        }
+        return chunkArray(instructions.map(i => ({
             text: i,
             callback_data: JSON.stringify({
-              title: this.events[this.currentPointer].title,
+              title: event.title,
               action: i,
             }),
         })));
@@ -125,6 +133,7 @@ export class EventHandler {
     addEvent(title: string) {
         this.events.push({
             title,
+            maxParticipants: 8, // TODO: make this depend on hours + number of courts
             participants: new Set([]),
         });
         this.updatePointer(title);
@@ -151,6 +160,18 @@ export class EventHandler {
             this.currentPointer = -1;
         }
         this.events = this.events.filter(event => event.title !== title);
+    }
+
+    getChunkedParticipants() {
+        const event = this.events[this.currentPointer];
+        return chunkArray(Array.from(event.participants).map(p => ({
+            text: JSON.stringify(p),
+            callback_data: JSON.stringify({
+              title: event.title,
+              p,
+              action: 'removeselectedparticipant',
+            }),
+        })))
     }
 
     addParticipant(participantName: string) {

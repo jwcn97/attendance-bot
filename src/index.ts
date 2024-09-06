@@ -157,13 +157,14 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
               const newField = text.text;
               eventHandler.updateEvent({ [data.f]: newField });
 
-              await bot.deleteMessage(updatePrompt.chat.id, String(updatePrompt.message_id));
-              await bot.deleteMessage(updatePrompt.chat.id, String(text.message_id));
-              await bot.editMessageText(eventHandler.displayEvents(), {
-                chat_id: query.message.chat.id,
-                message_id: query.message.message_id,
-                inline_message_id: query.inline_message_id,
-              });
+              await bot.sendMessage(updatePrompt.chat.id, eventHandler.displayEvents());
+              // await bot.deleteMessage(query.message.chat.id, String(updatePrompt.message_id));
+              // await bot.deleteMessage(query.message.chat.id, String(text.message_id));
+              // await bot.editMessageText(eventHandler.displayEvents(), {
+              //   chat_id: query.message.chat.id,
+              //   message_id: query.message.message_id,
+              //   inline_message_id: query.inline_message_id,
+              // });
             });
           }
           break;
@@ -192,31 +193,31 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
   
           bot.onReplyToMessage(query.message.chat.id, addNamePrompt.message_id, async (nameText) => {
             eventHandler.addParticipant(nameText.text);
-            await bot.deleteMessage(addNamePrompt.chat.id, String(addNamePrompt.message_id));
-            await bot.deleteMessage(addNamePrompt.chat.id, String(nameText.message_id));
-            await bot.editMessageText(eventHandler.displayEvents(), {
-              chat_id: query.message.chat.id,
-              message_id: query.message.message_id,
-              inline_message_id: query.inline_message_id,
-            });
+            await bot.sendMessage(addNamePrompt.chat.id, eventHandler.displayEvents());
+            // await bot.deleteMessage(query.message.chat.id, String(addNamePrompt.message_id));
+            // await bot.deleteMessage(query.message.chat.id, String(nameText.message_id));
+            // await bot.editMessageText(eventHandler.displayEvents(), {
+            //   chat_id: query.message.chat.id,
+            //   message_id: query.message.message_id,
+            //   inline_message_id: query.inline_message_id,
+            // });
           });
           break;
         case 'removeparticipant':
-          const removeNamePrompt = await bot.sendMessage(query.message.chat.id, "Name?", {
-            reply_markup: {
-              force_reply: true,
-            },
+          await bot.editMessageReplyMarkup({
+            inline_keyboard: eventHandler.getChunkedParticipants(),
+          }, {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
           });
-  
-          bot.onReplyToMessage(query.message.chat.id, removeNamePrompt.message_id, async (nameText) => {
-            eventHandler.removeParticipant(nameText.text);
-            await bot.deleteMessage(removeNamePrompt.chat.id, String(removeNamePrompt.message_id));
-            await bot.deleteMessage(removeNamePrompt.chat.id, String(nameText.message_id));
-            await bot.editMessageText(eventHandler.displayEvents(), {
-              chat_id: query.message.chat.id,
-              message_id: query.message.message_id,
-              inline_message_id: query.inline_message_id,
-            });
+          break;
+        case 'removeselectedparticipant':
+          eventHandler.removeParticipant(data.p);
+          await bot.editMessageText(eventHandler.displayEvents(), {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id,
+            inline_message_id: query.inline_message_id,
           });
           break;
         default:
