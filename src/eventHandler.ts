@@ -23,31 +23,31 @@ const HOURS = ["2", "3", "4"];
 const MAX_COURTS = 2;
 const COURTS = Array.from(Array(9).keys()).map(c => c+1);
 
-const mockEvents = [
-    {
-      title: 'test',
-      location: 'test',
-      court: [4],
-      startDatetime: 1726140600,
-      hours: 2,
-      participants: [],
-    },
-    {
-      title: 'again',
-      location: 'again',
-      court: [3],
-      startDatetime: 1726911000,
-      hours: 2,
-      participants: ['adf','addf ','addsf','asdfadsf','adfadsfasdfdsafasd','jacie', 'iuerqyreu', 'kjasfkhasdf'],
-    }
-]
+// const mockEvents = [
+//     {
+//       title: 'test',
+//       location: 'Henderson CC',
+//       court: [4],
+//       startDatetime: 1726140600,
+//       hours: 2,
+//       participants: [],
+//     },
+//     {
+//       title: 'again',
+//       location: 'Telok blangah',
+//       court: [3],
+//       startDatetime: 1726911000,
+//       hours: 2,
+//       participants: ['adf','addf ','addsf','asdfadsf','adfadsfasdfdsafasd','jacie', 'iuerqyreu', 'kjasfkhasdf'],
+//     }
+// ]
 
 export class EventHandler {
     currentPointer: number = -1;
     events: Array<Event> = [];
 
     constructor() {
-        this.events = mockEvents;
+        this.events = [];
     }
 
     displayEvents() {
@@ -87,7 +87,7 @@ export class EventHandler {
                 ? getShortDate(event.startDatetime)
                 : event.title;
             return {
-                text: shortDate,
+                text: `${shortDate}${event.location ? ` ${event.location}` : ''}`,
                 callback_data: JSON.stringify({
                   t: event.title,
                   act,
