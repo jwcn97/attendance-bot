@@ -188,16 +188,6 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
           },
         });
         break;
-      case 'removeeventcourts':
-        eventHandler.updateEvent({ court: currentEvent.court.filter(c => c !== Number(data.c)) });
-        await bot.editMessageText(eventHandler.displayEvent(), {
-          ...editMsgOption,
-          reply_markup: {
-            // NOTE: need to refetch instructions in case court number hits boundary
-            inline_keyboard: eventHandler.getChunkedInstructions(),
-          },
-        });
-        break;
       case 'removeevent':
         eventHandler.removeEvent();
         await bot.editMessageText(eventHandler.displayEvents(), editMsgOption);
