@@ -70,7 +70,7 @@ export class EventHandler {
             const maxParticipants = getMaxParticipants(court, hours);
             const participantCount = Math.min(participants.length, maxParticipants);
             return {
-                text: `${shortDate}${location ? ` ${location}` : ''} 👤 ${Numbers.toEmoji(participantCount)}`,
+                text: `${shortDate}${location ? ` ${location.split(' ').slice(0,2).join(' ')}` : ''} 👤 ${Numbers.toEmoji(participantCount)}`,
                 callback_data: JSON.stringify({
                   t: startDatetime,
                   act,
