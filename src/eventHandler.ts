@@ -1,4 +1,3 @@
-import Numbers from 'number-to-emoji';
 import { retrieve, writeToFile } from "./utils/fsHandle";
 import { chunkArray } from "./utils";
 import {
@@ -64,38 +63,62 @@ export class EventHandler {
             `${waitlistDisplay}`
     }
 
-    getChunkedEvents() {
-        return chunkArray(this.events.map(({ startDatetime, court, hours, participants, location }) => {
-            const shortDate = getShortDate(startDatetime);
-            const maxParticipants = getMaxParticipants(court, hours);
-            const participantCount = Math.min(participants.length, maxParticipants);
-            return {
-                text: `${shortDate}${location ? ` ${location.split(' ')[0]}...` : ''} 👤 ${Numbers.toEmoji(participantCount)}`,
-                callback_data: JSON.stringify({
-                  t: startDatetime,
-                  act: 'changeevents',
-                }),
-            }
-        }), 1);
+    getEvents() {
+        return chunkArray(
+            this.events.map(({ startDatetime, court, hours, participants, location }) => {
+                const shortDate = getShortDate(startDatetime);
+                const maxParticipants = getMaxParticipants(court, hours);
+                const participantCount = Math.min(participants.length, maxParticipants);
+                return {
+                    text: `${shortDate}${location ? ` ${location.split(' ')[0]}...` : ''} 👤[${participantCount}]`,
+                    callback_data: JSON.stringify({
+                    t: startDatetime,
+                    act: 'changeevents',
+                    }),
+                }
+            }),
+            1
+        );
     }
 
     getChunkedInstructions(isAdmin: boolean) {
-        const instructions = isAdmin
-            ? ['editevent', 'removeevent', 'addparticipant']
-            : ['addparticipant']
-        const event = this.events[this.currentPointer];
-
+        const adminInstructions = [
+            {
+                text: 'Edit Event',
+                callback_data: JSON.stringify({
+                  act: 'editevent',
+                }),
+            },
+            {
+                text: 'Remove Event',
+                callback_data: JSON.stringify({
+                  act: 'removeevent',
+                }),
+            }
+        ]
+        const commonInstructions = [
+            {
+                text: 'Add Players',
+                callback_data: JSON.stringify({
+                  act: 'addparticipant',
+                }),
+            },
+        ]
         // NOTE: event organiser cannot be removed
-        if (event.participants.length > 1) {
-            instructions.push('removeparticipant');
+        if (this.events[this.currentPointer].participants.length > 1) {
+            commonInstructions.push({
+                text: 'Remove Players',
+                callback_data: JSON.stringify({
+                  act: 'removeparticipant',
+                }),
+            });
         }
-
-        const inlineInstructions = instructions.map(act => ({
-            text: act,
-            callback_data: JSON.stringify({
-              act,
-            }),
-        }));
+        const inlineInstructions = isAdmin ? [
+            ...adminInstructions,
+            ...commonInstructions,
+        ] : [
+            ...commonInstructions,
+        ];
         return chunkArray([...inlineInstructions, {
             text: '⏪ back',
             callback_data: JSON.stringify({
@@ -105,18 +128,31 @@ export class EventHandler {
     }
 
     getChunkedFields() {
-        const fieldsToInclude = ['hours', 'location'];
-        const currentEvent = this.events[this.currentPointer];
-        if (currentEvent.court.length < MAX_COURTS) {
-            fieldsToInclude.push('addcourt');
+        const inlineFields = [
+            {
+                text: 'Duration (hrs)',
+                callback_data: JSON.stringify({
+                    f: 'hours',
+                    act: 'editeventfield',
+                }),
+            },
+            {
+                text: 'Location',
+                callback_data: JSON.stringify({
+                    f: 'location',
+                    act: 'editeventfield',
+                }),
+            },
+        ]
+        if (this.events[this.currentPointer].court.length < MAX_COURTS) {
+            inlineFields.push({
+                text: 'Add Court',
+                callback_data: JSON.stringify({
+                    f: 'addcourt',
+                    act: 'editeventfield',
+                }),
+            });
         }
-        const inlineFields = fieldsToInclude.map(f => ({
-            text: f,
-            callback_data: JSON.stringify({
-              f,
-              act: 'editeventfield',
-            }),
-        }));
         return chunkArray([...inlineFields, {
             text: '⏪ back',
             callback_data: JSON.stringify({
@@ -127,7 +163,7 @@ export class EventHandler {
 
     getChunkedHours() {
         const inlineHours = HOURS.map(h => ({
-            text: h,
+            text: `${h}HRS`,
             callback_data: JSON.stringify({
               h,
               act: 'editeventhours',

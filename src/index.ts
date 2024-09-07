@@ -55,7 +55,7 @@ bot.on('message', async (msg: Message) => {
 
   switch (command) {
     case 'changeevents':
-      const chunkedEvents = eventHandler.getChunkedEvents();
+      const chunkedEvents = eventHandler.getEvents();
       if (!chunkedEvents.length) {
         await bot.sendMessage(msg.chat.id, "no events to show");
         break;
@@ -142,7 +142,7 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
         await bot.editMessageText("Choose event", {
           ...editMsgOption,
           reply_markup: {
-            inline_keyboard: eventHandler.getChunkedEvents(),
+            inline_keyboard: eventHandler.getEvents(),
           },
         });
         break;

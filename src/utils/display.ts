@@ -11,7 +11,7 @@ export function getFullDay(unix: number) {
 }
 
 export function getShortDate(startDatetime: number): string {
-    return moment.unix(startDatetime).format("DD/M ddd");
+    return moment.unix(startDatetime).format("DD/MM ddd HH:mm");
 }
 
 export function convertToReadableDatetimeRange(startDatetime: number, hours: number): {
