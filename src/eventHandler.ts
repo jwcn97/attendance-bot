@@ -50,12 +50,12 @@ export class EventHandler {
         const { date, time } = convertToReadableDatetimeRange(startDatetime, hours);
         const fees = getFeesDisplay(hours);
         const maxParticipants = getMaxParticipants(court, hours);
-        const participantDisplay = getParticipantDisplay(Array.from(participants), maxParticipants);
-        const waitlistDisplay = getWaitlistsDisplay(Array.from(participants).slice(maxParticipants));
+        const participantDisplay = getParticipantDisplay(participants, maxParticipants);
+        const waitlistDisplay = getWaitlistsDisplay(participants.slice(maxParticipants));
 
         return '' +
-            `${title.toLocaleUpperCase()}\n` +
-            `📍 ${(location || '').toLocaleUpperCase()}\n` +
+            `${title.toUpperCase()}\n` +
+            `📍 ${(location || '').toUpperCase()}\n` +
             `📅 ${date}\n` +
             `⏱️ ${time}\n` +
             `🏸 ${!court.length ? '' : `CRT ${court.join(',')}`}\n` +
@@ -64,16 +64,16 @@ export class EventHandler {
             `${waitlistDisplay}`
     }
 
-    getChunkedEvents(act: string) {
+    getChunkedEvents() {
         return chunkArray(this.events.map(({ startDatetime, court, hours, participants, location }) => {
             const shortDate = getShortDate(startDatetime);
             const maxParticipants = getMaxParticipants(court, hours);
             const participantCount = Math.min(participants.length, maxParticipants);
             return {
-                text: `${shortDate}${location ? ` ${location.split(' ').slice(0,2).join(' ')}` : ''} 👤 ${Numbers.toEmoji(participantCount)}`,
+                text: `${shortDate}${location ? ` ${location.split(' ')[0]}...` : ''} 👤 ${Numbers.toEmoji(participantCount)}`,
                 callback_data: JSON.stringify({
                   t: startDatetime,
-                  act,
+                  act: 'changeevents',
                 }),
             }
         }), 1);
@@ -85,15 +85,23 @@ export class EventHandler {
             : ['addparticipant']
         const event = this.events[this.currentPointer];
 
-        if (event.participants.length > 0) {
+        // NOTE: event organiser cannot be removed
+        if (event.participants.length > 1) {
             instructions.push('removeparticipant');
         }
-        return chunkArray(instructions.map(act => ({
+
+        const inlineInstructions = instructions.map(act => ({
             text: act,
             callback_data: JSON.stringify({
               act,
             }),
-        })));
+        }));
+        return chunkArray([...inlineInstructions, {
+            text: '⏪ back',
+            callback_data: JSON.stringify({
+                act: 'vieweventlist',
+            }),
+        }]);
     }
 
     getChunkedFields() {
@@ -110,7 +118,7 @@ export class EventHandler {
             }),
         }));
         return chunkArray([...inlineFields, {
-            text: "<<",
+            text: '⏪ back',
             callback_data: JSON.stringify({
                 act: 'changeevents',
             }),
@@ -126,7 +134,7 @@ export class EventHandler {
             }),
         }));
         return chunkArray([...inlineHours, {
-            text: "<<",
+            text: '⏪ back',
             callback_data: JSON.stringify({
                 act: 'editevent',
             })
@@ -135,14 +143,14 @@ export class EventHandler {
 
     getChunkedCourts() {
         const inlineCourts = COURTS.map(c => ({
-            text: c,
+            text: `CRT ${c}`,
             callback_data: JSON.stringify({
               c: c.toString(),
               act: 'addeventcourts',
             }),
         }));
         return chunkArray([...inlineCourts, {
-            text: "<<",
+            text: '⏪ back',
             callback_data: JSON.stringify({
                 act: 'editevent',
             })
@@ -217,7 +225,7 @@ export class EventHandler {
 
     getChunkedParticipants() {
         const event = this.events[this.currentPointer];
-        const inlineParticipants = Array.from(event.participants).map(p => ({
+        const inlineParticipants = event.participants.slice(1).map(p => ({
             text: p,
             callback_data: JSON.stringify({
               p,
@@ -225,7 +233,7 @@ export class EventHandler {
             }),
         }));
         return chunkArray([...inlineParticipants, {
-            text: "<<",
+            text: '⏪ back',
             callback_data: JSON.stringify({
                 act: 'changeevents',
             }),
@@ -235,8 +243,9 @@ export class EventHandler {
     addParticipants(participantNames: Array<string>) {
         const event = this.events[this.currentPointer];
         for (const participantName of participantNames) {
-            if (!event.participants.find(p => p === participantName)) {
-                event.participants.push(participantName);
+            const trimmedParticipantName = participantName.trim();
+            if (!event.participants.find(p => p.toLowerCase() === trimmedParticipantName.toLowerCase())) {
+                event.participants.push(trimmedParticipantName);
             }
         }
         this.save();

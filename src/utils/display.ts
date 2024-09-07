@@ -45,7 +45,7 @@ export function getMaxParticipants(court: Array<number>, hours?: number) {
 }
 
 export function getFeesDisplay(hours?: number) {
-    return `${hours ? HOUR_TO_FEES_MAPPING[hours] : 0} DOLLARS (CASH OR PAYNOW)`;
+    return `$${hours ? HOUR_TO_FEES_MAPPING[hours] : 0} (CASH OR PAYNOW)`;
 }
 
 export function getParticipantDisplay(participants: Array<string>, maxParticipants: number) {

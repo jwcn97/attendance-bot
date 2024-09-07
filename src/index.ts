@@ -55,7 +55,7 @@ bot.on('message', async (msg: Message) => {
 
   switch (command) {
     case 'changeevents':
-      const chunkedEvents = eventHandler.getChunkedEvents(command);
+      const chunkedEvents = eventHandler.getChunkedEvents();
       if (!chunkedEvents.length) {
         await bot.sendMessage(msg.chat.id, "no events to show");
         break;
@@ -137,6 +137,15 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
     const currentEvent = eventHandler.events[eventHandler.currentPointer];
 
     switch (data.act) {
+      case 'vieweventlist':
+        // NOTE: case for when admin returns from choose event
+        await bot.editMessageText("Choose event", {
+          ...editMsgOption,
+          reply_markup: {
+            inline_keyboard: eventHandler.getChunkedEvents(),
+          },
+        });
+        break;
       case 'changeevents':
         await bot.editMessageText(eventHandler.displayEvent(), editMsgOptionWithInstruction);
         break;
