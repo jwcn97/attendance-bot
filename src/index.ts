@@ -26,12 +26,12 @@ const eventHandler = new EventHandler();
 bot.setMyCommands(
   [
     {
-      command: '/changeevents',
-      description: 'Change Events',
-    },
-    {
       command: '/displayevents',
       description: 'Display Events',
+    },
+    {
+      command: '/changeevents',
+      description: 'Change Events',
     },
     {
       command: '/addevent',
@@ -46,8 +46,8 @@ bot.setMyCommands(
 );
 
 bot.on('message', async (msg: Message) => {
-  const isAdmin = true;
-  // const isAdmin = msg.chat.type == 'private' && WHITELIST_ADMIN.includes(msg.from.username);
+  const isAdmin = msg.chat.type == 'private';
+  // && WHITELIST_ADMIN.includes(msg.from.username);
 
   const { command, prompt } = preparePrompt(msg);
   if (!command) return;
@@ -73,7 +73,6 @@ bot.on('message', async (msg: Message) => {
       break;
     case 'addevent':
       if (!isAdmin) {
-        await bot.sendMessage(msg.chat.id, 'no access to this feature');
         break;
       }
       eventHandler.currentPointer = -1;
@@ -87,8 +86,8 @@ bot.on('message', async (msg: Message) => {
 });
 
 bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
-  const isAdmin = true;
-  // const isAdmin = query.message.chat.type == 'private' && WHITELIST_ADMIN.includes(query.from.username);
+  const isAdmin = query.message.chat.type == 'private';
+  // && WHITELIST_ADMIN.includes(query.from.username);
 
   if (query.message.message_id == calendar.chats.get(query.message.chat.id)) {
     const res = calendar.clickButtonCalendar(query);
@@ -197,7 +196,17 @@ bot.on("callback_query", async (query: TelegramBot.CallbackQuery) => {
         break;
       case 'removeevent':
         eventHandler.removeEvent();
-        await bot.editMessageText(eventHandler.displayEvents(), editMsgOption);
+        const chunkedEvents = eventHandler.getEvents();
+        if (!chunkedEvents.length) {
+          await bot.editMessageText("no events to show", editMsgOption);
+          break;
+        }
+        await bot.editMessageText("Choose event", {
+          ...editMsgOption,
+          reply_markup: {
+            inline_keyboard: eventHandler.getEvents(),
+          },
+        });
         break;
       case 'addparticipant':
         const addNamePrompt = await bot.sendMessage(query.message.chat.id, "Name?", {
